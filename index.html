@@ -500,6 +500,21 @@ nav{background:color-mix(in srgb,var(--surface) 75%,transparent)}
 .pe-opt:active{transform:scale(.98)}
 .pe-opt .num{color:var(--muted);font-size:13px;white-space:nowrap}
 .pe-opt[aria-pressed="true"]{border-color:var(--tab);background:var(--tab-soft)}
+.pe-cur .thumb{width:52px;height:52px}
+.pe-cur-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.pe-cur-t .num{color:var(--muted);font-size:13px}
+.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pe-tile{appearance:none;display:flex;flex-direction:column;gap:6px;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:14px;padding:6px 6px 9px;cursor:pointer;color:inherit;transition:border-color .2s,background .2s,transform .15s;animation:rise .35s var(--ease) both}
+.pe-tile:active{transform:scale(.97)}
+.pe-tile[aria-pressed="true"]{border-color:var(--tab);background:var(--tab-soft)}
+.pe-media{display:block;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 30% 25%,#1d3a28,#14171c 75%)}
+.pe-media>img:not(.ph),.pe-media .food-art{width:100%;height:100%;object-fit:cover;display:block}
+.pe-tile[aria-pressed="true"] .pe-media::after{content:"✓";position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--tab);color:var(--on-tab,#0b0d10);font:800 13px/22px var(--body);text-align:center}
+.pe-own{position:absolute;left:6px;bottom:6px;font:700 10px var(--body);letter-spacing:.06em;text-transform:uppercase;background:rgba(0,0,0,.55);color:#fff;padding:3px 6px;border-radius:999px}
+.pe-name{font:700 14px/1.2 var(--body);padding:0 3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pe-tile .num{color:var(--muted);font-size:12px;padding:0 3px}
+.ph-none{display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:var(--tab)}
+.ph-none .ico{width:42%;height:42%;max-width:44px;max-height:44px;stroke:currentColor;opacity:.8}
 .gauge{position:relative;height:12px;border-radius:99px;background:var(--sunk);border:1px solid var(--line)}
 .gauge .g-fill{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--green);transition:width .6s var(--ease)}
 .gauge .g-fill.up{background:var(--yellow)} .gauge .g-fill.warn{background:var(--red)}
@@ -1696,13 +1711,23 @@ function peOpen(){
   PE={slots:JSON.parse(JSON.stringify(planSlots())), open:null};
   lockScroll(true); renderPE(true); play("page");
 }
+function pickMedia(pick,w,h){ // inner picture for a plan choice: own photo, real photo over illustration, or icon placeholder
+  if(String(pick).indexOf("c:")===0){
+    var f=myFood(pick.slice(2))||{};
+    if(f.img) return '<img src="'+f.img+'" alt="">';
+    return '<span class="ph-none">'+icon((f.icons&&f.icons[0])||guessIcon(f.name||""))+'</span>';
+  }
+  if(DISH[pick]) return foodArt(pick)+photoImg(pick,w,h);
+  return '<span class="ph-none">'+icon("other")+'</span>';
+}
 function peOptions(sl){
   var it=slotItem(sl), cat=it.cat||"m", own=myFoods();
-  var opt=function(pick,name,k,p,tag){return '<button class="pe-opt" data-act="pe-pick" data-pick="'+esc(pick)+'" aria-pressed="'+(sl.pick===pick)+'"><span>'+esc(name)+(tag?' <span class="own-t">'+tag+'</span>':'')+'</span><span class="num">'+k+' · '+p+' g</span></button>';};
+  var opt=function(pick,name,k,p,tag){return '<button class="pe-tile" data-act="pe-pick" data-pick="'+esc(pick)+'" aria-pressed="'+(sl.pick===pick)+'"><span class="pe-media ph-w">'+pickMedia(pick,360,270)+(tag?'<span class="pe-own">'+tag+'</span>':'')+'</span><span class="pe-name">'+esc(name)+'</span><span class="num">'+k+' kcal · '+p+' g</span></button>';};
+  var grid=function(list){return '<div class="pe-grid">'+list.join("")+'</div>';};
   var rec=["b","m","s"].sort(function(a,b){return (a===cat?-1:0)-(b===cat?-1:0);});
-  var h='<div class="picker"><div class="grp-h">Staples</div>'+Object.keys(BASE).map(function(k){var b=BASE[k]; return opt(k,b.name,b.kcal,b.p);}).join("")+
-    '<div class="grp-h">Recipes</div>'+rec.map(function(c){return RECIPES[c].map(function(r){return opt(r.id,r.name,r.kcal,r.p);}).join("");}).join("")+
-    '<div class="grp-h">My foods</div>'+(own.length?own.map(function(e){return opt("c:"+e[0],e[1].name,e[1].kcal,e[1].p,"your own");}).join(""):'<p class="muted" style="font-size:14px">None yet. Add them from the Food tab.</p>')+'</div>';
+  var h='<div class="picker"><div class="grp-h">Staples</div>'+grid(Object.keys(BASE).map(function(k){var b=BASE[k]; return opt(k,b.name,b.kcal,b.p);}))+
+    '<div class="grp-h">Recipes</div>'+grid([].concat.apply([],rec.map(function(c){return RECIPES[c].map(function(r){return opt(r.id,r.name,r.kcal,r.p);});})))+
+    '<div class="grp-h">My foods</div>'+(own.length?grid(own.map(function(e){return opt("c:"+e[0],e[1].name,e[1].kcal,e[1].p,"yours");})):'<p class="muted" style="font-size:14px">None yet. Add them from the Food tab.</p>')+'</div>';
   return h;
 }
 function renderPE(first){
@@ -1719,7 +1744,7 @@ function renderPE(first){
   PE.slots.forEach(function(sl,i){
     var it=slotItem(sl);
     h+='<section class="card"><div class="row" style="flex-wrap:nowrap"><input class="txt-in" data-pe="name" data-i="'+i+'" value="'+esc(sl.name)+'" maxlength="20" aria-label="Meal name" style="flex:1"><button class="x" data-act="pe-del" data-i="'+i+'" aria-label="Remove '+esc(sl.name)+'">×</button></div>'+
-      '<button class="pe-cur" data-act="pe-open" data-i="'+i+'" aria-expanded="'+(PE.open===i)+'"><span><b>'+esc(it.name)+'</b>'+(it.own?' <span class="own-t">your own</span>':'')+'</span><span class="num">'+it.kcal+' kcal · '+it.p+' g <span class="chev">›</span></span></button>'+
+      '<button class="pe-cur" data-act="pe-open" data-i="'+i+'" aria-expanded="'+(PE.open===i)+'"><span class="thumb ph-w">'+(sl.pick?pickMedia(sl.pick,160,160):'<span class="ph-none">'+icon("other")+'</span>')+'</span><span class="pe-cur-t"><b>'+esc(it.name)+'</b>'+(it.own?' <span class="own-t">your own</span>':'')+'<span class="num">'+it.kcal+' kcal · '+it.p+' g</span></span><span class="chev">›</span></button>'+
       (PE.open===i?peOptions(sl):'')+'</section>';
   });
   if(PE.slots.length<6) h+='<button class="btn ghost" data-act="pe-add">Add a meal</button>';
